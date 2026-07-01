@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>ChatLedger</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --border: #2a2e38;
+    --text: #e6e8ee;
+    --muted: #9aa0ad;
+    --accent: #5b8cff;
+    --green: #3ddc84;
+    --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    background: rgba(61, 220, 132, 0.12);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type=file] { color: var(--text); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .stages { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+  .stage { font-size: 13px; padding: 6px 10px; border-radius: 6px; background: #1f232c; color: var(--muted); }
+  .stage.done { color: var(--green); }
+  .stage.active { color: var(--accent); }
+  .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .filter-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+  input[type=text] {
+    background: #1f232c;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  tr.item-row { cursor: pointer; }
+  tr.item-row:hover { background: #1c202a; }
+  .source-panel {
+    background: #11141a;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 4px 0 12px 0;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .pill.yes { background: rgba(61,220,132,0.15); color: var(--green); }
+  .pill.no { background: rgba(255,107,107,0.15); color: var(--red); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .summary { color: var(--muted); font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ChatLedger</h1>
+  <div class="badge" id="network-badge"><span class="dot"></span> Network: OFF — running fully local</div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="upload-row">
+      <input type="file" id="file-input" accept=".txt" />
+      <button id="upload-btn">Upload &amp; Process</button>
+      <span id="upload-status" class="summary"></span>
+    </div>
+    <div class="stages" id="stages">
+      <div class="stage" data-stage="ingestion">1. Ingestion</div>
+      <div class="stage" data-stage="chunking">2. Chunking</div>
+      <div class="stage" data-stage="extraction">3. Extraction</div>
+      <div class="stage" data-stage="storage">4. Storage</div>
+    </div>
+    <div class="summary" id="run-summary"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" data-tab="action_items">Action Items</div>
+      <div class="tab" data-tab="decisions">Decisions</div>
+      <div class="tab" data-tab="open_questions">Open Questions</div>
+    </div>
+
+    <div class="filter-row">
+      <input type="text" id="filter-input" placeholder="Filter by sender/owner..." />
+      <button class="secondary" id="export-csv">Export CSV</button>
+      <button class="secondary" id="export-json">Export JSON</button>
+    </div>
+
+    <div id="results-container">
+      <div class="empty">No results yet. Upload a chat export to begin.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+const API = "/api";
+let currentTab = "action_items";
+let currentData = [];
+let openSourceRow = null;
+
+const tabConfig = {
+  action_items: {
+    columns: [["owner", "Owner"], ["task", "Task"], ["deadline", "Deadline"]],
+    filterField: "owner",
+  },
+  decisions: {
+    columns: [["decision", "Decision"], ["made_by", "Made By"]],
+    filterField: "made_by",
+  },
+  open_questions: {
+    columns: [["asker", "Asker"], ["question", "Question"], ["answered", "Answered"]],
+    filterField: "asker",
+  },
+};
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentTab = tab.dataset.tab;
+    openSourceRow = null;
+    loadResults();
+  });
+});
+
+document.getElementById("filter-input").addEventListener("input", () => loadResults());
+
+document.getElementById("upload-btn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("file-input");
+  const statusEl = document.getElementById("upload-status");
+  if (!fileInput.files.length) {
+    statusEl.textContent = "Choose a .txt file first.";
+    return;
+  }
+  resetStages();
+  statusEl.textContent = "Uploading...";
+  document.getElementById("upload-btn").disabled = true;
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    setStage("ingestion", "active");
+    const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+      throw new Error(err.detail || "Upload failed");
+    }
+    const data = await res.json();
+    Object.keys(data.stages).forEach(s => setStage(s, "done"));
+    statusEl.textContent = "Done.";
+    document.getElementById("run-summary").textContent =
+      `${data.message_count} messages -> ${data.chunk_count} chunks ` +
+      `(${data.failed_chunks} extraction failures) -> ` +
+      `${data.action_items} action items, ${data.decisions} decisions, ${data.open_questions} open questions.`;
+    await loadResults();
+  } catch (e) {
+    statusEl.textContent = `Error: ${e.message}`;
+  } finally {
+    document.getElementById("upload-btn").disabled = false;
+  }
+});
+
+function resetStages() {
+  document.querySelectorAll(".stage").forEach(s => s.classList.remove("done", "active"));
+  document.getElementById("run-summary").textContent = "";
+}
+
+function setStage(name, state) {
+  const el = document.querySelector(`.stage[data-stage="${name}"]`);
+  if (!el) return;
+  el.classList.remove("done", "active");
+  el.classList.add(state);
+  // Naively activate the next stage visually while we wait on the single
+  // synchronous /api/upload call to resolve.
+  const order = ["ingestion", "chunking", "extraction", "storage"];
+  const idx = order.indexOf(name);
+  if (state === "active" && idx >= 0 && idx < order.length - 1) {
+    // no-op: real progress isn't streamed in this single-request version
+  }
+}
+
+async function loadResults() {
+  const filterField = tabConfig[currentTab].filterField;
+  const filterValue = document.getElementById("filter-input").value.trim();
+  const url = filterValue
+    ? `${API}/${currentTab}?${filterField}=${encodeURIComponent(filterValue)}`
+    : `${API}/${currentTab}`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    currentData = [];
+    renderTable();
+    return;
+  }
+  currentData = await res.json();
+  renderTable();
+}
+
+function renderTable() {
+  const container = document.getElementById("results-container");
+  if (!currentData.length) {
+    container.innerHTML = `<div class="empty">No items found.</div>`;
+    return;
+  }
+  const cfg = tabConfig[currentTab];
+  let html = `<table><thead><tr>`;
+  cfg.columns.forEach(([key, label]) => { html += `<th>${label}</th>`; });
+  html += `</tr></thead><tbody>`;
+
+  currentData.forEach((row, i) => {
+    html += `<tr class="item-row" data-idx="${i}">`;
+    cfg.columns.forEach(([key]) => {
+      if (key === "answered") {
+        html += `<td><span class="pill ${row[key] ? 'yes' : 'no'}">${row[key] ? 'Yes' : 'No'}</span></td>`;
+      } else {
+        html += `<td>${escapeHtml(row[key] ?? "")}</td>`;
+      }
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+
+  container.querySelectorAll(".item-row").forEach(tr => {
+    tr.addEventListener("click", async () => {
+      const idx = Number(tr.dataset.idx);
+      await toggleSource(tr, currentData[idx]);
+    });
+  });
+}
+
+async function toggleSource(tr, row) {
+  const existing = tr.nextElementSibling;
+  if (existing && existing.classList.contains("source-row")) {
+    existing.remove();
+    return;
+  }
+  document.querySelectorAll(".source-row").forEach(el => el.remove());
+
+  const res = await fetch(`${API}/source/${encodeURIComponent(row.source_message_id)}`);
+  const colCount = tabConfig[currentTab].columns.length;
+  const sourceRow = document.createElement("tr");
+  sourceRow.className = "source-row";
+  if (res.ok) {
+    const msg = await res.json();
+    sourceRow.innerHTML = `<td colspan="${colCount}"><div class="source-panel">[${msg.message_id}] ${msg.timestamp} ${escapeHtml(msg.sender)}: ${escapeHtml(msg.message_text)}</div></td>`;
+  } else {
+    sourceRow.innerHTML = `<td colspan="${colCount}"><div class="source-panel">Source message not found.</div></td>`;
+  }
+  tr.after(sourceRow);
+}
+
+document.getElementById("export-csv").addEventListener("click", () => {
+  window.location.href = `${API}/export?fmt=csv&table=${currentTab}`;
+});
+document.getElementById("export-json").addEventListener("click", () => {
+  window.location.href = `${API}/export?fmt=json&table=${currentTab}`;
+});
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+loadResults();
+</script>
+</body>
+</html>
