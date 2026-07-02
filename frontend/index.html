@@ -2,328 +2,824 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>ChatLedger</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ChatLedger</title>
 <style>
+  /* ── Reset & base ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --border: #2a2e38;
-    --text: #e6e8ee;
-    --muted: #9aa0ad;
-    --accent: #5b8cff;
-    --green: #3ddc84;
-    --red: #ff6b6b;
+    --bg:         #0f1117;
+    --surface:    #1a1d27;
+    --surface2:   #22263a;
+    --border:     #2e3348;
+    --text:       #e2e4ef;
+    --muted:      #7b80a0;
+    --accent:     #5c7cfa;
+    --accent-dim: #1e2a5e;
+    --green:      #40c97a;
+    --green-dim:  #0d2e1c;
+    --amber:      #f5a623;
+    --red:        #f05252;
+    --radius:     8px;
+    --shadow:     0 2px 12px rgba(0,0,0,.4);
+    font-size: 15px;
   }
-  * { box-sizing: border-box; }
+
   body {
-    margin: 0;
-    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg);
     color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    min-height: 100vh;
   }
+
+  /* ── Layout ───────────────────────────────────────────── */
   header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 24px;
+    padding: 14px 28px;
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
-  header h1 { font-size: 18px; margin: 0; }
-  .badge {
-    display: inline-flex;
+
+  .logo { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+  .logo span { color: var(--accent); }
+
+  .badge-offline {
+    display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 20px;
-    background: rgba(61, 220, 132, 0.12);
+    gap: 7px;
+    padding: 5px 13px;
     border: 1px solid var(--green);
+    border-radius: 20px;
+    background: var(--green-dim);
     color: var(--green);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  .badge-offline .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+
+  main { max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  /* ── Cards ────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
     font-size: 13px;
     font-weight: 600;
-  }
-  .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
-  main { max-width: 1000px; margin: 0 auto; padding: 24px; }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  .upload-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  input[type=file] { color: var(--text); }
-  button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 16px;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-  .stages { display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
-  .stage { font-size: 13px; padding: 6px 10px; border-radius: 6px; background: #1f232c; color: var(--muted); }
-  .stage.done { color: var(--green); }
-  .stage.active { color: var(--accent); }
-  .tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-  .tab {
-    padding: 10px 16px;
-    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: .7px;
     color: var(--muted);
-    border-bottom: 2px solid transparent;
-    font-size: 14px;
+    margin-bottom: 16px;
   }
-  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
-  .filter-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
-  input[type=text] {
-    background: #1f232c;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 13px;
+
+  /* ── Upload area ──────────────────────────────────────── */
+  .upload-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; }
-  tr.item-row { cursor: pointer; }
-  tr.item-row:hover { background: #1c202a; }
-  .source-panel {
-    background: #11141a;
+
+  .file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    background: var(--surface2);
     border: 1px dashed var(--border);
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin: 4px 0 12px 0;
+    border-radius: var(--radius);
+    cursor: pointer;
     font-size: 13px;
     color: var(--muted);
-    white-space: pre-wrap;
+    transition: border-color .15s, color .15s;
   }
-  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
-  .pill.yes { background: rgba(61,220,132,0.15); color: var(--green); }
-  .pill.no { background: rgba(255,107,107,0.15); color: var(--red); }
-  .empty { color: var(--muted); padding: 24px; text-align: center; }
-  .summary { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .file-label:hover { border-color: var(--accent); color: var(--text); }
+  .file-label.has-file { border-color: var(--accent); color: var(--text); }
+  input[type="file"] { display: none; }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: .88; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Pipeline progress ────────────────────────────────── */
+  .stages {
+    display: flex;
+    gap: 0;
+    margin-top: 18px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .stage {
+    flex: 1;
+    padding: 9px 10px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface2);
+    border-right: 1px solid var(--border);
+    transition: background .25s, color .25s;
+    position: relative;
+  }
+  .stage:last-child { border-right: none; }
+  .stage.active  { background: var(--accent-dim); color: var(--accent); }
+  .stage.done    { background: var(--green-dim);  color: var(--green);  }
+  .stage.failed  { background: #2e1414;            color: var(--red);    }
+
+  .stage-label { display: block; }
+  .stage-icon  { display: block; font-size: 16px; margin-bottom: 2px; }
+
+  .status-msg {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 20px;
+  }
+  .status-msg.error { color: var(--red); }
+  .status-msg.ok    { color: var(--green); }
+
+  /* ── Summary pills ────────────────────────────────────── */
+  .summary-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .summary-pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .summary-pill strong { color: var(--text); }
+
+  /* ── Tabs ─────────────────────────────────────────────── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 18px;
+  }
+  .tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .tab:hover  { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .count {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: var(--surface2);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .tab.active .count { background: var(--accent-dim); color: var(--accent); }
+
+  /* ── Controls row (filter + export) ──────────────────── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  select {
+    padding: 8px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237b80a0' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+  select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+
+  .spacer { flex: 1; }
+
+  /* ── Table ────────────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    padding: 8px 12px;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr.data-row {
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .1s;
+  }
+  tbody tr.data-row:hover { background: var(--surface2); }
+  tbody tr.data-row.expanded { background: var(--accent-dim); }
+  tbody td {
+    padding: 11px 12px;
+    vertical-align: top;
+    line-height: 1.45;
+  }
+  tbody td:first-child { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+  .answered-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .answered-yes { background: var(--green-dim);  color: var(--green); }
+  .answered-no  { background: #2e1d0e;            color: var(--amber); }
+
+  /* ── Source message expand row ───────────────────────── */
+  tr.source-row td {
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .source-bubble {
+    margin: 0 12px 12px 36px;
+    padding: 11px 14px;
+    background: var(--surface2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .source-bubble .src-meta {
+    color: var(--muted);
+    font-size: 11px;
+    margin-bottom: 4px;
+  }
+  .source-bubble .src-text { color: var(--text); white-space: pre-wrap; }
+  .source-bubble .src-err  { color: var(--red); font-style: italic; }
+
+  /* ── Empty / loading states ──────────────────────────── */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .empty .empty-icon { font-size: 32px; display: block; margin-bottom: 10px; }
+
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
+<!-- ── Header ──────────────────────────────────────────────────────── -->
 <header>
-  <h1>ChatLedger</h1>
-  <div class="badge" id="network-badge"><span class="dot"></span> Network: OFF — running fully local</div>
+  <div class="logo">Chat<span>Ledger</span></div>
+  <div class="badge-offline">
+    <span class="dot"></span>
+    Network: OFF — running fully local
+  </div>
 </header>
 
+<!-- ── Main ────────────────────────────────────────────────────────── -->
 <main>
-  <div class="panel">
+
+  <!-- Upload card -->
+  <div class="card">
+    <div class="card-title">Upload chat export</div>
     <div class="upload-row">
+      <label class="file-label" id="file-label" for="file-input">
+        <span>📂</span> <span id="file-label-text">Choose .txt file…</span>
+      </label>
       <input type="file" id="file-input" accept=".txt" />
-      <button id="upload-btn">Upload &amp; Process</button>
-      <span id="upload-status" class="summary"></span>
+      <button class="btn-primary" id="upload-btn" disabled>
+        ▶ Process
+      </button>
     </div>
-    <div class="stages" id="stages">
-      <div class="stage" data-stage="ingestion">1. Ingestion</div>
-      <div class="stage" data-stage="chunking">2. Chunking</div>
-      <div class="stage" data-stage="extraction">3. Extraction</div>
-      <div class="stage" data-stage="storage">4. Storage</div>
+
+    <!-- Pipeline progress bar -->
+    <div class="stages" id="stages" style="display:none">
+      <div class="stage" id="stage-parse">
+        <span class="stage-icon">📄</span>
+        <span class="stage-label">Parse</span>
+      </div>
+      <div class="stage" id="stage-chunk">
+        <span class="stage-icon">✂️</span>
+        <span class="stage-label">Chunk</span>
+      </div>
+      <div class="stage" id="stage-extract">
+        <span class="stage-icon">🤖</span>
+        <span class="stage-label">Extract</span>
+      </div>
+      <div class="stage" id="stage-merge">
+        <span class="stage-icon">🔀</span>
+        <span class="stage-label">Merge</span>
+      </div>
+      <div class="stage" id="stage-store">
+        <span class="stage-icon">💾</span>
+        <span class="stage-label">Store</span>
+      </div>
     </div>
-    <div class="summary" id="run-summary"></div>
+
+    <div class="status-msg" id="status-msg"></div>
+
+    <div class="summary-row" id="summary-row" style="display:none">
+      <div class="summary-pill">📨 Messages: <strong id="s-messages">—</strong></div>
+      <div class="summary-pill">✅ Actions: <strong id="s-actions">—</strong></div>
+      <div class="summary-pill">⚖️ Decisions: <strong id="s-decisions">—</strong></div>
+      <div class="summary-pill">❓ Questions: <strong id="s-questions">—</strong></div>
+      <div class="summary-pill">⚠️ Failed chunks: <strong id="s-failed">—</strong></div>
+      <div class="summary-pill">⏱ Time: <strong id="s-time">—</strong></div>
+    </div>
   </div>
 
-  <div class="panel">
+  <!-- Results card -->
+  <div class="card">
     <div class="tabs">
-      <div class="tab active" data-tab="action_items">Action Items</div>
-      <div class="tab" data-tab="decisions">Decisions</div>
-      <div class="tab" data-tab="open_questions">Open Questions</div>
+      <div class="tab active" data-tab="action_items">
+        Action Items <span class="count" id="count-action_items">0</span>
+      </div>
+      <div class="tab" data-tab="decisions">
+        Decisions <span class="count" id="count-decisions">0</span>
+      </div>
+      <div class="tab" data-tab="open_questions">
+        Open Questions <span class="count" id="count-open_questions">0</span>
+      </div>
     </div>
 
-    <div class="filter-row">
-      <input type="text" id="filter-input" placeholder="Filter by sender/owner..." />
-      <button class="secondary" id="export-csv">Export CSV</button>
-      <button class="secondary" id="export-json">Export JSON</button>
+    <div class="controls">
+      <select id="filter-select">
+        <option value="">All owners / senders</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn-secondary" id="export-csv-btn">⬇ CSV</button>
+      <button class="btn-secondary" id="export-json-btn">⬇ JSON</button>
     </div>
 
-    <div id="results-container">
-      <div class="empty">No results yet. Upload a chat export to begin.</div>
+    <div class="table-wrap">
+      <div id="results-container">
+        <div class="empty">
+          <span class="empty-icon">📭</span>
+          Upload a WhatsApp export to see extracted items here.
+        </div>
+      </div>
     </div>
   </div>
+
 </main>
 
 <script>
-const API = "/api";
-let currentTab = "action_items";
-let currentData = [];
-let openSourceRow = null;
+/* ─────────────────────────────────────────────────────────────────────
+   Config
+───────────────────────────────────────────────────────────────────── */
+const API = "http://localhost:8000";
 
-const tabConfig = {
+/* ─────────────────────────────────────────────────────────────────────
+   State
+───────────────────────────────────────────────────────────────────── */
+let currentTab  = "action_items";
+let allData     = { action_items: [], decisions: [], open_questions: [] };
+let expandedRow = null;   // TR element currently expanded
+
+/* ─────────────────────────────────────────────────────────────────────
+   Tab config: columns and the field used for the filter dropdown
+───────────────────────────────────────────────────────────────────── */
+const TAB_CFG = {
   action_items: {
-    columns: [["owner", "Owner"], ["task", "Task"], ["deadline", "Deadline"]],
     filterField: "owner",
+    filterLabel: "All owners",
+    columns: [
+      { key: "source_message_id", label: "Msg"      },
+      { key: "owner",             label: "Owner"     },
+      { key: "task",              label: "Task"      },
+      { key: "deadline",          label: "Deadline"  },
+    ],
   },
   decisions: {
-    columns: [["decision", "Decision"], ["made_by", "Made By"]],
     filterField: "made_by",
+    filterLabel: "All decision-makers",
+    columns: [
+      { key: "source_message_id", label: "Msg"      },
+      { key: "made_by",           label: "Made by"  },
+      { key: "decision",          label: "Decision" },
+    ],
   },
   open_questions: {
-    columns: [["asker", "Asker"], ["question", "Question"], ["answered", "Answered"]],
     filterField: "asker",
+    filterLabel: "All askers",
+    columns: [
+      { key: "source_message_id", label: "Msg"      },
+      { key: "asker",             label: "Asker"    },
+      { key: "question",          label: "Question" },
+      { key: "answered",          label: "Answered" },
+    ],
   },
 };
 
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
-    currentTab = tab.dataset.tab;
-    openSourceRow = null;
-    loadResults();
-  });
-});
-
-document.getElementById("filter-input").addEventListener("input", () => loadResults());
-
-document.getElementById("upload-btn").addEventListener("click", async () => {
-  const fileInput = document.getElementById("file-input");
-  const statusEl = document.getElementById("upload-status");
-  if (!fileInput.files.length) {
-    statusEl.textContent = "Choose a .txt file first.";
-    return;
-  }
-  resetStages();
-  statusEl.textContent = "Uploading...";
-  document.getElementById("upload-btn").disabled = true;
-
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-
-  try {
-    setStage("ingestion", "active");
-    const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-      throw new Error(err.detail || "Upload failed");
-    }
-    const data = await res.json();
-    Object.keys(data.stages).forEach(s => setStage(s, "done"));
-    statusEl.textContent = "Done.";
-    document.getElementById("run-summary").textContent =
-      `${data.message_count} messages -> ${data.chunk_count} chunks ` +
-      `(${data.failed_chunks} extraction failures) -> ` +
-      `${data.action_items} action items, ${data.decisions} decisions, ${data.open_questions} open questions.`;
-    await loadResults();
-  } catch (e) {
-    statusEl.textContent = `Error: ${e.message}`;
-  } finally {
-    document.getElementById("upload-btn").disabled = false;
-  }
-});
-
-function resetStages() {
-  document.querySelectorAll(".stage").forEach(s => s.classList.remove("done", "active"));
-  document.getElementById("run-summary").textContent = "";
-}
-
-function setStage(name, state) {
-  const el = document.querySelector(`.stage[data-stage="${name}"]`);
-  if (!el) return;
-  el.classList.remove("done", "active");
-  el.classList.add(state);
-  // Naively activate the next stage visually while we wait on the single
-  // synchronous /api/upload call to resolve.
-  const order = ["ingestion", "chunking", "extraction", "storage"];
-  const idx = order.indexOf(name);
-  if (state === "active" && idx >= 0 && idx < order.length - 1) {
-    // no-op: real progress isn't streamed in this single-request version
-  }
-}
-
-async function loadResults() {
-  const filterField = tabConfig[currentTab].filterField;
-  const filterValue = document.getElementById("filter-input").value.trim();
-  const url = filterValue
-    ? `${API}/${currentTab}?${filterField}=${encodeURIComponent(filterValue)}`
-    : `${API}/${currentTab}`;
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    currentData = [];
-    renderTable();
-    return;
-  }
-  currentData = await res.json();
-  renderTable();
-}
-
-function renderTable() {
-  const container = document.getElementById("results-container");
-  if (!currentData.length) {
-    container.innerHTML = `<div class="empty">No items found.</div>`;
-    return;
-  }
-  const cfg = tabConfig[currentTab];
-  let html = `<table><thead><tr>`;
-  cfg.columns.forEach(([key, label]) => { html += `<th>${label}</th>`; });
-  html += `</tr></thead><tbody>`;
-
-  currentData.forEach((row, i) => {
-    html += `<tr class="item-row" data-idx="${i}">`;
-    cfg.columns.forEach(([key]) => {
-      if (key === "answered") {
-        html += `<td><span class="pill ${row[key] ? 'yes' : 'no'}">${row[key] ? 'Yes' : 'No'}</span></td>`;
-      } else {
-        html += `<td>${escapeHtml(row[key] ?? "")}</td>`;
-      }
-    });
-    html += `</tr>`;
-  });
-  html += `</tbody></table>`;
-  container.innerHTML = html;
-
-  container.querySelectorAll(".item-row").forEach(tr => {
-    tr.addEventListener("click", async () => {
-      const idx = Number(tr.dataset.idx);
-      await toggleSource(tr, currentData[idx]);
-    });
-  });
-}
-
-async function toggleSource(tr, row) {
-  const existing = tr.nextElementSibling;
-  if (existing && existing.classList.contains("source-row")) {
-    existing.remove();
-    return;
-  }
-  document.querySelectorAll(".source-row").forEach(el => el.remove());
-
-  const res = await fetch(`${API}/source/${encodeURIComponent(row.source_message_id)}`);
-  const colCount = tabConfig[currentTab].columns.length;
-  const sourceRow = document.createElement("tr");
-  sourceRow.className = "source-row";
-  if (res.ok) {
-    const msg = await res.json();
-    sourceRow.innerHTML = `<td colspan="${colCount}"><div class="source-panel">[${msg.message_id}] ${msg.timestamp} ${escapeHtml(msg.sender)}: ${escapeHtml(msg.message_text)}</div></td>`;
-  } else {
-    sourceRow.innerHTML = `<td colspan="${colCount}"><div class="source-panel">Source message not found.</div></td>`;
-  }
-  tr.after(sourceRow);
-}
-
-document.getElementById("export-csv").addEventListener("click", () => {
-  window.location.href = `${API}/export?fmt=csv&table=${currentTab}`;
-});
-document.getElementById("export-json").addEventListener("click", () => {
-  window.location.href = `${API}/export?fmt=json&table=${currentTab}`;
-});
-
-function escapeHtml(str) {
-  return String(str)
+/* ─────────────────────────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────────────────────────── */
+function esc(str) {
+  return String(str ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
+function setStatus(msg, cls = "") {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  el.className = "status-msg" + (cls ? " " + cls : "");
+}
+
+function setStage(id, state) {
+  const el = document.getElementById("stage-" + id);
+  if (!el) return;
+  el.classList.remove("active", "done", "failed");
+  if (state) el.classList.add(state);
+}
+
+function resetStages() {
+  ["parse","chunk","extract","merge","store"].forEach(s => setStage(s, ""));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   File input
+───────────────────────────────────────────────────────────────────── */
+const fileInput    = document.getElementById("file-input");
+const fileLabel    = document.getElementById("file-label");
+const fileLabelTxt = document.getElementById("file-label-text");
+const uploadBtn    = document.getElementById("upload-btn");
+
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files[0];
+  if (f) {
+    fileLabelTxt.textContent = f.name;
+    fileLabel.classList.add("has-file");
+    uploadBtn.disabled = false;
+  } else {
+    fileLabelTxt.textContent = "Choose .txt file…";
+    fileLabel.classList.remove("has-file");
+    uploadBtn.disabled = true;
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────────────
+   Upload + pipeline
+───────────────────────────────────────────────────────────────────── */
+uploadBtn.addEventListener("click", async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  // Reset UI
+  uploadBtn.disabled = true;
+  document.getElementById("stages").style.display = "flex";
+  document.getElementById("summary-row").style.display = "none";
+  resetStages();
+  setStatus("");
+  expandedRow = null;
+
+  const fd = new FormData();
+  fd.append("file", file);
+
+  // Animate stages while waiting (the server does all five in one request)
+  const stageOrder = ["parse","chunk","extract","merge","store"];
+  let stageIdx = 0;
+  setStage(stageOrder[0], "active");
+  const stageTimer = setInterval(() => {
+    if (stageIdx < stageOrder.length - 1) {
+      setStage(stageOrder[stageIdx], "done");
+      stageIdx++;
+      setStage(stageOrder[stageIdx], "active");
+    }
+  }, 600);
+
+  setStatus('<span class="spinner"></span>Processing — this may take a minute while Ollama runs…');
+
+  try {
+    const resp = await fetch(`${API}/upload`, { method: "POST", body: fd });
+    clearInterval(stageTimer);
+
+    if (!resp.ok) {
+      stageOrder.forEach(s => setStage(s, ""));
+      setStage(stageOrder[stageIdx], "failed");
+      const err = await resp.json().catch(() => ({ detail: "Unknown error" }));
+      setStatus("Upload failed: " + (err.detail ?? resp.statusText), "error");
+      uploadBtn.disabled = false;
+      return;
+    }
+
+    const data = await resp.json();
+
+    // Mark all stages done
+    stageOrder.forEach(s => setStage(s, "done"));
+    if (data.pipeline.chunks_failed > 0) setStage("extract", "active"); // amber-ish
+
+    // Summary pills
+    const p = data.pipeline;
+    const e = data.extracted;
+    document.getElementById("s-messages").textContent  = p.messages_parsed;
+    document.getElementById("s-actions").textContent   = e.action_items;
+    document.getElementById("s-decisions").textContent = e.decisions;
+    document.getElementById("s-questions").textContent = e.open_questions;
+    document.getElementById("s-failed").textContent    = p.chunks_failed;
+    document.getElementById("s-time").textContent      = data.elapsed_seconds + "s";
+    document.getElementById("summary-row").style.display = "flex";
+
+    const failNote = p.chunks_failed > 0
+      ? ` (${p.chunks_failed} chunk${p.chunks_failed > 1 ? "s" : ""} failed extraction)`
+      : "";
+    setStatus(
+      `Done — ${e.action_items} actions, ${e.decisions} decisions, `
+      + `${e.open_questions} questions${failNote}.`,
+      "ok"
+    );
+
+    // Reload results
+    await loadResults();
+
+  } catch (err) {
+    clearInterval(stageTimer);
+    stageOrder.forEach(s => setStage(s, ""));
+    setStage("parse", "failed");
+    setStatus("Error: " + err.message, "error");
+    uploadBtn.disabled = false;
+  }
+
+  uploadBtn.disabled = false;
+});
+
+/* ─────────────────────────────────────────────────────────────────────
+   Load results from API
+───────────────────────────────────────────────────────────────────── */
+async function loadResults() {
+  try {
+    const resp = await fetch(`${API}/results`);
+    if (!resp.ok) throw new Error(resp.statusText);
+    allData = await resp.json();
+  } catch {
+    allData = { action_items: [], decisions: [], open_questions: [] };
+  }
+
+  // Update tab counts
+  for (const key of Object.keys(TAB_CFG)) {
+    document.getElementById("count-" + key).textContent =
+      (allData[key] ?? []).length;
+  }
+
+  rebuildFilter();
+  renderTable();
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Filter dropdown
+───────────────────────────────────────────────────────────────────── */
+function rebuildFilter() {
+  const cfg   = TAB_CFG[currentTab];
+  const rows  = allData[currentTab] ?? [];
+  const field = cfg.filterField;
+  const sel   = document.getElementById("filter-select");
+  const prev  = sel.value;
+
+  const unique = [...new Set(rows.map(r => r[field]).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">${esc(cfg.filterLabel)}</option>`;
+  unique.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    if (v === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("filter-select").addEventListener("change", renderTable);
+
+/* ─────────────────────────────────────────────────────────────────────
+   Render table
+───────────────────────────────────────────────────────────────────── */
+function renderTable() {
+  const cfg        = TAB_CFG[currentTab];
+  const filterVal  = document.getElementById("filter-select").value;
+  let   rows       = allData[currentTab] ?? [];
+
+  if (filterVal) {
+    rows = rows.filter(r => r[cfg.filterField] === filterVal);
+  }
+
+  const container = document.getElementById("results-container");
+  expandedRow = null;
+
+  if (rows.length === 0) {
+    var emptyMsg = "No items found";
+    if (filterVal) emptyMsg += " for \u201c" + esc(filterVal) + "\u201d";
+    container.innerHTML =
+      '<div class="empty"><span class="empty-icon">\u{1F50D}</span>' + emptyMsg + '.</div>';
+    return;
+  }
+
+  // Build table
+  let html = '<table><thead><tr>';
+  html += '<th></th>'; // expand chevron
+  cfg.columns.forEach(c => { html += `<th>${esc(c.label)}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  rows.forEach((row, i) => {
+    html += `<tr class="data-row" data-idx="${i}"><td>▸</td>`;
+    cfg.columns.forEach(col => {
+      if (col.key === "answered") {
+        const yes = row.answered === 1 || row.answered === true;
+        html += `<td><span class="answered-badge ${yes ? "answered-yes" : "answered-no"}">`
+              + `${yes ? "Yes" : "Open"}</span></td>`;
+      } else if (col.key === "source_message_id") {
+        html += `<td><code>${esc(row[col.key] ?? "")}</code></td>`;
+      } else {
+        html += `<td>${esc(row[col.key] ?? "—")}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Attach click listeners for expand
+  container.querySelectorAll(".data-row").forEach(tr => {
+    tr.addEventListener("click", () => toggleExpand(tr, rows[+tr.dataset.idx], cfg.columns.length + 1));
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Click-to-expand source message
+───────────────────────────────────────────────────────────────────── */
+async function toggleExpand(tr, row, colCount) {
+  // Collapse if already open
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains("source-row")) {
+    next.remove();
+    tr.classList.remove("expanded");
+    tr.querySelector("td").textContent = "▸";
+    expandedRow = null;
+    return;
+  }
+
+  // Collapse any other open row first
+  if (expandedRow) {
+    const prevNext = expandedRow.nextElementSibling;
+    if (prevNext && prevNext.classList.contains("source-row")) prevNext.remove();
+    expandedRow.classList.remove("expanded");
+    expandedRow.querySelector("td").textContent = "▸";
+  }
+
+  tr.classList.add("expanded");
+  tr.querySelector("td").textContent = "▾";
+  expandedRow = tr;
+
+  // Insert placeholder
+  const srcRow = document.createElement("tr");
+  srcRow.className = "source-row";
+  srcRow.innerHTML = `<td colspan="${colCount}">
+    <div class="source-bubble">
+      <div class="src-meta">Loading source message…</div>
+    </div>
+  </td>`;
+  tr.after(srcRow);
+
+  try {
+    const resp = await fetch(
+      `${API}/results?source_message_id=${encodeURIComponent(row.source_message_id)}`
+    );
+    if (!resp.ok) throw new Error("not found");
+    const data = await resp.json();
+    const msg  = data.source_message;
+    srcRow.innerHTML = `<td colspan="${colCount}">
+      <div class="source-bubble">
+        <div class="src-meta">
+          <strong>${esc(msg.message_id)}</strong>
+          &nbsp;·&nbsp; ${esc(msg.timestamp)}
+          &nbsp;·&nbsp; ${esc(msg.sender)}
+        </div>
+        <div class="src-text">${esc(msg.text)}</div>
+      </div>
+    </td>`;
+  } catch {
+    srcRow.innerHTML = `<td colspan="${colCount}">
+      <div class="source-bubble">
+        <div class="src-err">Source message "${esc(row.source_message_id)}" not found.</div>
+      </div>
+    </td>`;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Tabs
+───────────────────────────────────────────────────────────────────── */
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    currentTab = tab.dataset.tab;
+    expandedRow = null;
+    rebuildFilter();
+    renderTable();
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────────────
+   Export
+───────────────────────────────────────────────────────────────────── */
+function triggerExport(fmt) {
+  const url = `${API}/results/export?format=${fmt}&table=${currentTab}`;
+  const a   = document.createElement("a");
+  a.href    = url;
+  a.download = `chatledger_${currentTab}.${fmt}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+document.getElementById("export-csv-btn").addEventListener("click",  () => triggerExport("csv"));
+document.getElementById("export-json-btn").addEventListener("click", () => triggerExport("json"));
+
+/* ─────────────────────────────────────────────────────────────────────
+   Init — load any results already in the db on page open
+───────────────────────────────────────────────────────────────────── */
 loadResults();
 </script>
 </body>
