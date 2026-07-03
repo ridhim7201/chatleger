@@ -76,6 +76,18 @@ CREATE TABLE IF NOT EXISTS open_questions (
     FOREIGN KEY (source_message_id) REFERENCES messages (message_id)
         ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS chunk_cache (
+    chunk_hash  TEXT PRIMARY KEY,
+    result_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS extraction_failures (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    chunk_id    TEXT    NOT NULL,
+    chunk_hash  TEXT    NOT NULL,
+    error       TEXT    NOT NULL
+);
 """
 
 # ---------------------------------------------------------------------------
@@ -122,6 +134,21 @@ def init_db(db_path: str | Path) -> None:
     """
     with _connect(db_path) as conn:
         conn.executescript(_DDL)
+
+
+def reset_db(db_path: str | Path) -> None:
+    """Delete all extracted data and messages, keeping the schema intact.
+
+    The chunk_cache table is intentionally preserved — cached Ollama results
+    remain valid regardless of which file is loaded, so there's no reason to
+    re-run extraction on chunks the model has already seen.
+    """
+    with _connect(db_path) as conn:
+        conn.execute("DELETE FROM open_questions")
+        conn.execute("DELETE FROM decisions")
+        conn.execute("DELETE FROM action_items")
+        conn.execute("DELETE FROM messages")
+        conn.execute("DELETE FROM extraction_failures")
 
 
 def insert_messages(db_path: str | Path, messages: list[dict]) -> None:
