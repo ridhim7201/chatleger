@@ -22,6 +22,7 @@ import csv
 import io
 import json
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -31,6 +32,7 @@ import httpx
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from chunker import chunk_messages
 from db import (
@@ -41,6 +43,7 @@ from db import (
     init_db,
     insert_extraction_result,
     insert_messages,
+    reset_db,
 )
 from extractor import OLLAMA_URL, extract_chunk
 from merge import merge_results
@@ -69,6 +72,11 @@ DB_PATH = Path(__file__).parent / "chatledger.db"
 async def _lifespan(app: FastAPI):  # noqa: ARG001
     init_db(DB_PATH)
     log.info("Database ready at %s", DB_PATH)
+    if os.getenv("DEMO_MODE", "").lower() in ("1", "true", "yes"):
+        from seed_demo import seed
+
+        seed(DB_PATH)
+        log.info("Demo data seeded.")
     yield
 
 
@@ -92,6 +100,9 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8000",
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "null",  # file:// origin in some browsers
     ],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -268,6 +279,18 @@ def get_results(
 # ---------------------------------------------------------------------------
 
 
+@app.delete("/reset", status_code=status.HTTP_200_OK)
+def reset() -> dict:
+    """Delete all messages and extracted items from the database.
+
+    The Ollama chunk cache (.cache/*.json) is preserved so re-uploading
+    the same file doesn't re-call the model for chunks it has already seen.
+    """
+    reset_db(DB_PATH)
+    log.info("Database reset — all data cleared")
+    return {"status": "ok", "message": "All data cleared. Ready for a new upload."}
+
+
 _EXPORT_TABLES = {
     "action_items": fetch_action_items,
     "decisions": fetch_decisions,
@@ -353,6 +376,45 @@ def health() -> dict:
         "network_note": "Only localhost:11434 (Ollama) is ever contacted — no cloud calls.",
     }
 
+
+# ---------------------------------------------------------------------------
+# PWA files — must be served at the root path with correct MIME types.
+# These are registered before StaticFiles so they take priority.
+# ---------------------------------------------------------------------------
+
+
+@app.get("/manifest.json", include_in_schema=False)
+def manifest() -> dict:
+    """Web app manifest for PWA install prompt."""
+    from fastapi.responses import FileResponse
+
+    p = Path(__file__).parent.parent / "frontend" / "manifest.json"
+    return FileResponse(p, media_type="application/manifest+json")
+
+
+@app.get("/sw.js", include_in_schema=False)
+def service_worker():
+    """Service worker — must be served from the root scope."""
+    from fastapi.responses import FileResponse
+
+    p = Path(__file__).parent.parent / "frontend" / "sw.js"
+    return FileResponse(p, media_type="application/javascript")
+
+
+# ---------------------------------------------------------------------------
+# Static frontend  (served at / — must be mounted after all API routes)
+# ---------------------------------------------------------------------------
+# Resolve the frontend directory relative to this file so the app works
+# regardless of the working directory uvicorn is started from.
+_FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+if _FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+else:
+    log.warning(
+        "Frontend directory not found at %s — serving API only. "
+        "Open frontend/index.html directly in your browser.",
+        _FRONTEND_DIR,
+    )
 
 # ---------------------------------------------------------------------------
 # Entrypoint

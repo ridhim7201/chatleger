@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ChatLedger</title>
+<meta name="description" content="Offline WhatsApp chat analyser — extracts action items, decisions and open questions." />
+<meta name="theme-color" content="#0f1117" />
+<link rel="manifest" href="/manifest.json" />
 <style>
   /* ── Reset & base ─────────────────────────────────────── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -144,6 +147,12 @@
     border: 1px solid var(--border);
   }
   .btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn-danger {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+  .btn-danger:hover:not(:disabled) { background: rgba(240,82,82,.12); }
 
   /* ── Pipeline progress ────────────────────────────────── */
   .stages {
@@ -371,6 +380,7 @@
       <button class="btn-primary" id="upload-btn" disabled>
         ▶ Process
       </button>
+      <button class="btn-danger" id="reset-btn">🗑 Reset</button>
     </div>
 
     <!-- Pipeline progress bar -->
@@ -407,6 +417,7 @@
       <div class="summary-pill">⚠️ Failed chunks: <strong id="s-failed">—</strong></div>
       <div class="summary-pill">⏱ Time: <strong id="s-time">—</strong></div>
     </div>
+    <div class="summary" id="run-summary"></div>
   </div>
 
   <!-- Results card -->
@@ -821,6 +832,64 @@ document.getElementById("export-json-btn").addEventListener("click", () => trigg
    Init — load any results already in the db on page open
 ───────────────────────────────────────────────────────────────────── */
 loadResults();
+
+/* ─────────────────────────────────────────────────────────────────────
+   Reset
+───────────────────────────────────────────────────────────────────── */
+document.getElementById("reset-btn").addEventListener("click", async () => {
+  if (!confirm("Clear all data from the database? This cannot be undone.")) return;
+
+  const btn = document.getElementById("reset-btn");
+  btn.disabled = true;
+  btn.textContent = "Clearing…";
+
+  try {
+    const resp = await fetch(`${API}/reset`, { method: "DELETE" });
+    if (!resp.ok) {
+      const text = await resp.text();
+      let msg = resp.statusText;
+      try { msg = JSON.parse(text).detail ?? msg; } catch (_) { msg = text.slice(0, 120) || msg; }
+      throw new Error(msg);
+    }
+
+    // Clear UI state
+    allData = { action_items: [], decisions: [], open_questions: [] };
+    expandedRow = null;
+
+    // Helper so a missing element never crashes the reset
+    const byId = (id) => document.getElementById(id);
+    const hide  = (id) => { const el = byId(id); if (el) el.style.display = "none"; };
+    const clear = (id) => { const el = byId(id); if (el) el.textContent = ""; };
+    const set   = (id, v) => { const el = byId(id); if (el) el.textContent = v; };
+
+    hide("stages");
+    hide("summary-row");
+    clear("run-summary");
+    setStatus("Database cleared. Upload a new file to begin.", "ok");
+
+    const fi = byId("file-input");        if (fi)  fi.value = "";
+    set("file-label-text", "Choose .txt file…");
+    const fl = byId("file-label");        if (fl)  fl.classList.remove("has-file");
+    const ub = byId("upload-btn");        if (ub)  ub.disabled = true;
+
+    for (const key of Object.keys(TAB_CFG)) set("count-" + key, "0");
+    renderTable();
+  } catch (err) {
+    setStatus("Reset failed: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🗑 Reset";
+  }
+});
+
+/* ── PWA: register service worker for offline support ─────────── */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js")
+      .then(() => console.log("[PWA] Service worker registered"))
+      .catch(() => console.log("[PWA] Service worker unavailable — online mode only"));
+  });
+}
 </script>
 </body>
 </html>
